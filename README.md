@@ -108,7 +108,24 @@ Most settings can be managed in the browser. Server environment variables are us
 docker compose up --build
 ```
 
-The compose file publishes Neo Chat on `http://localhost:3000` and uses local/self-hosted safety defaults. For production Docker deployments, set stable BYOK values, use shared stores for hosted or multi-instance deployments, and enable `TRUST_PROXY_HEADERS` only behind a proxy that strips spoofed forwarded headers.
+The compose file publishes Neo Chat on `http://localhost:3000` and starts a
+private `doc-parser` sidecar with local/self-hosted safety defaults. The local
+parser needs no MinerU/LlamaParse key and supports text-layer PDFs, DOCX, XLSX,
+XLS, PPTX, and common text files; scanned PDFs do not include OCR yet. For
+production Docker deployments, set stable BYOK values, use shared stores for
+hosted or multi-instance deployments, and enable `TRUST_PROXY_HEADERS` only
+behind a proxy that strips spoofed forwarded headers.
+
+For a GHCR deployment, set these values in the server `.env` before pulling:
+
+```bash
+NEO_CHAT_IMAGE=ghcr.io/<owner>/<repo>:latest
+DOC_PARSER_IMAGE=ghcr.io/<owner>/<repo>-doc-parser:latest
+DOCUMENT_PARSE_BACKEND=local
+DOCUMENT_PARSE_BASE_URL=http://doc-parser:8000
+```
+
+Then run `docker compose pull && docker compose up -d --force-recreate`.
 
 ### Docker Image
 
@@ -121,6 +138,7 @@ The Docker workflow builds pull requests and publishes `main` / `v*` tags to Git
 
 ```text
 ghcr.io/u14app/neo-chat:latest
+ghcr.io/u14app/neo-chat-doc-parser:latest
 ```
 
 ### Vercel
