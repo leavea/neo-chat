@@ -1,10 +1,12 @@
 name: Docker
 
 on:
+  workflow_dispatch:
   pull_request:
   push:
     branches:
       - main
+      - "2.3.0"
     tags:
       - "v*"
 
