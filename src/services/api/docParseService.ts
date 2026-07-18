@@ -134,9 +134,6 @@ export async function parseDocumentFile(
   },
 ): Promise<string> {
   const { provider, apiKey, useDefault = false, signal } = options;
-  if (provider === "llamaParse" && !apiKey && !useDefault) {
-    throw new Error("LlamaParse API Key is required");
-  }
 
   let pendingJob: { id: string; secret: string } | null = null;
   try {

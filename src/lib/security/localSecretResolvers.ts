@@ -93,12 +93,16 @@ export function hasLlamaParseApiKey(
     | "llamaParseApiKeySecret"
     | "useDefaultDocumentProcessing"
     | "serverDocumentProcessingAvailable"
+    | "serverDocumentProcessingBackend"
   >,
 ): boolean {
   return Boolean(
     trimSecret(rag.llamaParseApiKey) ||
     hasLocalSecret(rag.llamaParseApiKeySecret) ||
-    (rag.useDefaultDocumentProcessing && rag.serverDocumentProcessingAvailable),
+    (rag.useDefaultDocumentProcessing &&
+      rag.serverDocumentProcessingAvailable) ||
+    (rag.serverDocumentProcessingBackend === "local" &&
+      rag.serverDocumentProcessingAvailable),
   );
 }
 
@@ -120,10 +124,13 @@ export function hasDocumentParseCredential(
     | "llamaParseApiKeySecret"
     | "useDefaultDocumentProcessing"
     | "serverDocumentProcessingAvailable"
+    | "serverDocumentProcessingBackend"
   >,
 ): boolean {
   const hasServerDefault = Boolean(
-    rag.useDefaultDocumentProcessing && rag.serverDocumentProcessingAvailable,
+    (rag.useDefaultDocumentProcessing ||
+      rag.serverDocumentProcessingBackend === "local") &&
+    rag.serverDocumentProcessingAvailable,
   );
 
   if (rag.documentParseProvider === "llamaParse") {

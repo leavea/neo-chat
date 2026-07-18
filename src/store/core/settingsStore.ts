@@ -354,10 +354,14 @@ export const useSettingsStore = create<SettingsState>()(
             config.rag.vectorStoreAvailable &&
             state.rag.useDefaultVectorStore === undefined &&
             !hasLocalRagVectorStore;
+          const localDocumentProcessing =
+            config.rag.documentProcessingBackend === "local" &&
+            config.rag.documentProcessingAvailable;
           const shouldUseDefaultDocumentProcessing =
-            config.rag.documentProcessingAvailable &&
-            state.rag.useDefaultDocumentProcessing === undefined &&
-            !hasDocumentParseCredential(state.rag);
+            localDocumentProcessing ||
+            (config.rag.documentProcessingAvailable &&
+              state.rag.useDefaultDocumentProcessing === undefined &&
+              !hasDocumentParseCredential(state.rag));
 
           const hasServerVoiceConfig =
             state.voice.serverDefaultVoiceProvider !== undefined ||
@@ -411,6 +415,8 @@ export const useSettingsStore = create<SettingsState>()(
               serverVectorStoreAvailable: config.rag.vectorStoreAvailable,
               serverDocumentProcessingAvailable:
                 config.rag.documentProcessingAvailable,
+              serverDocumentProcessingBackend:
+                config.rag.documentProcessingBackend,
               ...(shouldUseDefaultVectorStore
                 ? {
                     enabled: true,

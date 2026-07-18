@@ -110,8 +110,12 @@ function isTextMimeType(mimeType: string) {
 
 async function parseKnowledgeDocument(file: File, rag: RAGConfig) {
   const provider = rag.documentParseProvider || "mineru";
+  const localParser =
+    rag.serverDocumentProcessingBackend === "local" &&
+    rag.serverDocumentProcessingAvailable;
   const useDefaultDocumentProcessing = Boolean(
-    rag.useDefaultDocumentProcessing && rag.serverDocumentProcessingAvailable,
+    localParser ||
+    (rag.useDefaultDocumentProcessing && rag.serverDocumentProcessingAvailable),
   );
   const apiKey = useDefaultDocumentProcessing
     ? undefined

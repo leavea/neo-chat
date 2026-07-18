@@ -25,7 +25,12 @@ const UPSTASH_VECTOR_KEY_URL = "https://console.upstash.com/vector";
 
 const RAGSettings = () => {
   const t = useTranslations("RAG");
-  const { rag, updateRAGConfig } = useSettingsStore();
+  const { rag, serverConfig, updateRAGConfig } = useSettingsStore();
+  const localParserConfigured =
+    serverConfig?.rag.documentProcessingBackend === "local";
+  const localDocumentProcessing = Boolean(
+    localParserConfigured && rag.serverDocumentProcessingAvailable,
+  );
   const useDefaultDocumentProcessing = Boolean(
     rag.useDefaultDocumentProcessing && rag.serverDocumentProcessingAvailable,
   );
@@ -70,7 +75,7 @@ const RAGSettings = () => {
           </div>
         </div>
 
-        {/* Document Processing (LlamaParse) Section */}
+        {/* Document Processing Section */}
         <div className="space-y-4 pt-2">
           <div className="flex items-center gap-2 text-sm font-semibold text-gray-700 dark:text-foreground/85 border-b border-gray-100 dark:border-border pb-2">
             <FileCode
@@ -81,48 +86,79 @@ const RAGSettings = () => {
             <span>{t("documentProcessing")}</span>
           </div>
           <div className="space-y-4">
-            <div className="space-y-2">
-              <div className="text-sm font-medium text-gray-700 dark:text-foreground/85">
-                {t("documentParser")}
-              </div>
-              <SegmentedControl
-                ariaLabel={t("documentParser")}
-                value={rag.documentParseProvider}
-                onChange={(documentParseProvider) =>
-                  updateRAGConfig({ documentParseProvider })
-                }
-                options={[
-                  { value: "mineru", label: "Mineru" },
-                  { value: "llamaParse", label: "LlamaParse" },
-                ]}
-              />
-            </div>
-
-            {rag.serverDocumentProcessingAvailable && (
-              <div className="flex items-center justify-between rounded-xl border border-blue-100 bg-blue-50/60 p-3 dark:border-blue-900/40 dark:bg-blue-900/10">
-                <div>
-                  <div className="text-sm font-medium text-blue-800 dark:text-blue-200">
-                    {t("defaultDocumentProcessing")}
-                  </div>
-                  <div className="text-[10px] text-blue-600/80 dark:text-blue-300/80">
-                    {t("defaultDocumentProcessingDesc")}
-                  </div>
+            {localParserConfigured ? (
+              <div
+                className={`rounded-xl border p-3 ${
+                  localDocumentProcessing
+                    ? "border-green-100 bg-green-50/70 dark:border-green-900/40 dark:bg-green-900/10"
+                    : "border-amber-100 bg-amber-50/70 dark:border-amber-900/40 dark:bg-amber-900/10"
+                }`}
+              >
+                <div
+                  className={`text-sm font-medium ${
+                    localDocumentProcessing
+                      ? "text-green-800 dark:text-green-200"
+                      : "text-amber-800 dark:text-amber-200"
+                  }`}
+                >
+                  {localDocumentProcessing
+                    ? t("localDocumentProcessing")
+                    : t("localDocumentProcessingUnavailable")}
                 </div>
-                <SimpleSwitch
-                  ariaLabel={t("defaultDocumentProcessing")}
-                  name="ragDefaultDocumentProcessing"
-                  checked={useDefaultDocumentProcessing}
-                  onChange={() =>
-                    updateRAGConfig({
-                      useDefaultDocumentProcessing:
-                        !useDefaultDocumentProcessing,
-                    })
+                <p className="mt-1 text-[10px] text-gray-600 dark:text-muted-foreground">
+                  {localDocumentProcessing
+                    ? t("localDocumentProcessingDesc")
+                    : t("localDocumentProcessingUnavailableDesc")}
+                </p>
+              </div>
+            ) : null}
+
+            {!localParserConfigured && (
+              <div className="space-y-2">
+                <div className="text-sm font-medium text-gray-700 dark:text-foreground/85">
+                  {t("documentParser")}
+                </div>
+                <SegmentedControl
+                  ariaLabel={t("documentParser")}
+                  value={rag.documentParseProvider}
+                  onChange={(documentParseProvider) =>
+                    updateRAGConfig({ documentParseProvider })
                   }
+                  options={[
+                    { value: "mineru", label: "Mineru" },
+                    { value: "llamaParse", label: "LlamaParse" },
+                  ]}
                 />
               </div>
             )}
 
-            {!useDefaultDocumentProcessing &&
+            {!localParserConfigured &&
+              rag.serverDocumentProcessingAvailable && (
+                <div className="flex items-center justify-between rounded-xl border border-blue-100 bg-blue-50/60 p-3 dark:border-blue-900/40 dark:bg-blue-900/10">
+                  <div>
+                    <div className="text-sm font-medium text-blue-800 dark:text-blue-200">
+                      {t("defaultDocumentProcessing")}
+                    </div>
+                    <div className="text-[10px] text-blue-600/80 dark:text-blue-300/80">
+                      {t("defaultDocumentProcessingDesc")}
+                    </div>
+                  </div>
+                  <SimpleSwitch
+                    ariaLabel={t("defaultDocumentProcessing")}
+                    name="ragDefaultDocumentProcessing"
+                    checked={useDefaultDocumentProcessing}
+                    onChange={() =>
+                      updateRAGConfig({
+                        useDefaultDocumentProcessing:
+                          !useDefaultDocumentProcessing,
+                      })
+                    }
+                  />
+                </div>
+              )}
+
+            {!localParserConfigured &&
+              !useDefaultDocumentProcessing &&
               rag.documentParseProvider === "mineru" && (
                 <div className="space-y-2">
                   <label
@@ -171,7 +207,8 @@ const RAGSettings = () => {
                 </div>
               )}
 
-            {!useDefaultDocumentProcessing &&
+            {!localParserConfigured &&
+              !useDefaultDocumentProcessing &&
               rag.documentParseProvider === "llamaParse" && (
                 <div className="space-y-2">
                   <label

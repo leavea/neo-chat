@@ -2,9 +2,9 @@ services:
   neo-chat:
     build:
       context: .
-    image: neo-chat:local
+    image: ${NEO_CHAT_IMAGE:-neo-chat:local}
     ports:
-      - "3000:3000"
+      - "${NEO_CHAT_PORT:-3000}:3000"
     environment:
       NODE_ENV: production
       PORT: "3000"
@@ -23,7 +23,18 @@ services:
       PLUGIN_REGISTRY_STORE: ${PLUGIN_REGISTRY_STORE:-memory}
       UPSTASH_REDIS_REST_URL: ${UPSTASH_REDIS_REST_URL:-}
       UPSTASH_REDIS_REST_TOKEN: ${UPSTASH_REDIS_REST_TOKEN:-}
+      MAX_ATTACHMENT_FILE_BYTES: ${MAX_ATTACHMENT_FILE_BYTES:-10485760}
+      DOCUMENT_PARSE_BACKEND: ${DOCUMENT_PARSE_BACKEND:-local}
+      DOCUMENT_PARSE_BASE_URL: ${DOCUMENT_PARSE_BASE_URL:-http://doc-parser:8000}
+      DOCUMENT_PARSE_TIMEOUT_MS: ${DOCUMENT_PARSE_TIMEOUT_MS:-120000}
+      DOC_PARSER_MAX_MARKDOWN_CHARS: ${DOC_PARSER_MAX_MARKDOWN_CHARS:-2000000}
+    depends_on:
+      doc-parser:
+        condition: service_healthy
     restart: unless-stopped
+    networks:
+      - app
+      - parser
     healthcheck:
       test:
         [
@@ -34,3 +45,46 @@ services:
       timeout: 10s
       retries: 3
       start_period: 30s
+
+  doc-parser:
+    build:
+      context: ./services/doc-parser
+    image: ${DOC_PARSER_IMAGE:-neo-chat-doc-parser:local}
+    expose:
+      - "8000"
+    environment:
+      DOC_PARSER_MAX_FILE_BYTES: ${DOC_PARSER_MAX_FILE_BYTES:-52428800}
+      DOC_PARSER_MAX_MARKDOWN_CHARS: ${DOC_PARSER_MAX_MARKDOWN_CHARS:-2000000}
+      DOC_PARSER_MAX_PDF_PAGES: ${DOC_PARSER_MAX_PDF_PAGES:-500}
+      DOC_PARSER_MAX_ARCHIVE_ENTRIES: ${DOC_PARSER_MAX_ARCHIVE_ENTRIES:-2000}
+      DOC_PARSER_MAX_ARCHIVE_BYTES: ${DOC_PARSER_MAX_ARCHIVE_BYTES:-104857600}
+      DOC_PARSER_MAX_COMPRESSION_RATIO: ${DOC_PARSER_MAX_COMPRESSION_RATIO:-100}
+    restart: unless-stopped
+    read_only: true
+    tmpfs:
+      - /tmp:size=256m,mode=1777
+    mem_limit: ${DOC_PARSER_MEMORY_LIMIT:-768m}
+    cpus: ${DOC_PARSER_CPUS:-1.0}
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    networks:
+      - parser
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/healthz', timeout=2)",
+        ]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+networks:
+  app:
+  parser:
+    internal: true

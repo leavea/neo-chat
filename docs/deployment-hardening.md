@@ -22,6 +22,13 @@ BYOK_PRIVATE_KEY_PEM="-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY----
 BYOK_KEY_ID=prod-2026-07
 ```
 
+For the bundled local document parser, set `DOCUMENT_PARSE_BACKEND=local` and
+`DOCUMENT_PARSE_BASE_URL=http://doc-parser:8000`. The parser is a separate
+container and should be kept off the public network. It uses temporary files,
+runs as a non-root user, and has Compose CPU/memory limits; tune
+`DOC_PARSER_MEMORY_LIMIT` and `DOC_PARSER_CPUS` only when larger documents
+require it.
+
 Production `local` mode now fails closed for `/api/*` when `ACCESS_PASSWORD` is
 empty. Set `ALLOW_INSECURE_LOCAL_PRODUCTION=true` only for a private deployment
 that is not exposed to the internet and has another access boundary.

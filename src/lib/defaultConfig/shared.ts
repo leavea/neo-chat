@@ -1,5 +1,6 @@
 import type {
   DefaultModels,
+  DocumentParseBackend,
   DocumentParseProvider,
   ModelMetadata,
   ProviderType,
@@ -30,6 +31,7 @@ export interface PublicServerConfig {
   rag: {
     vectorStoreAvailable: boolean;
     documentProcessingAvailable: boolean;
+    documentProcessingBackend?: DocumentParseBackend;
     documentProcessingProvider?: DocumentParseProvider;
     topK?: number;
     chunkSize?: number;

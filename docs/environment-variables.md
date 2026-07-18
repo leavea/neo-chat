@@ -6,6 +6,31 @@ security boundaries, and shared infrastructure configuration.
 
 Use `.env.example` as the source template.
 
+## Local document parsing
+
+The Docker Compose deployment includes a small `doc-parser` sidecar. Enable it
+with:
+
+```bash
+DOCUMENT_PARSE_BACKEND=local
+DOCUMENT_PARSE_BASE_URL=http://doc-parser:8000
+DOCUMENT_PARSE_TIMEOUT_MS=120000
+DOC_PARSER_MAX_MARKDOWN_CHARS=2000000
+```
+
+The sidecar parses PDF text layers, DOCX, XLSX, XLS, PPTX, and common text
+files without a MinerU/LlamaParse key. It does not perform OCR, so scanned
+PDFs need a separate OCR-capable deployment. The parser is reachable only on
+the Compose network; it does not publish a host port.
+
+| Variable                        | Purpose                                                                       |
+| ------------------------------- | ----------------------------------------------------------------------------- |
+| `DOCUMENT_PARSE_BACKEND`        | `local` for the sidecar, `external` for the existing Mineru/LlamaParse paths. |
+| `DOCUMENT_PARSE_BASE_URL`       | Internal parser URL, normally `http://doc-parser:8000`.                       |
+| `DOCUMENT_PARSE_TIMEOUT_MS`     | Server-to-sidecar timeout (default `120000`).                                 |
+| `DOC_PARSER_MAX_MARKDOWN_CHARS` | Maximum returned Markdown size (default `2000000`).                           |
+| `DOC_PARSER_MAX_PDF_PAGES`      | Maximum PDF pages parsed by the sidecar (default `500`).                      |
+
 ## Cloudflare Workers
 
 For local development, use `.env.local` or `.dev.vars` as appropriate. Do not

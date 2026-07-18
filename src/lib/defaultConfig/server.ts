@@ -11,6 +11,7 @@ import { normalizeProviderModelId } from "../providers/models";
 import { normalizeSystemSettings } from "../settings/appConfig";
 import type {
   DefaultModels,
+  DocumentParseBackend,
   DocumentParseProvider,
   MimoVoiceID,
   ModelMetadata,
@@ -54,6 +55,13 @@ const MIMO_TTS_VOICE_IDS = new Set<MimoVoiceID>([
   "Milo",
   "Dean",
 ]);
+
+const DEFAULT_DOCUMENT_PARSE_BACKEND: DocumentParseBackend = "external";
+const DEFAULT_DOCUMENT_PARSE_TIMEOUT_MS = 120_000;
+const MIN_DOCUMENT_PARSE_TIMEOUT_MS = 1_000;
+const MAX_DOCUMENT_PARSE_TIMEOUT_MS = 10 * 60_000;
+const DEFAULT_DOC_PARSER_MAX_MARKDOWN_CHARS = 2_000_000;
+const MAX_DOC_PARSER_MAX_MARKDOWN_CHARS = 20_000_000;
 
 type ConfigurableSearchProvider = Exclude<
   SearchProviderID,
@@ -387,6 +395,52 @@ export function getDefaultDocumentParseProvider(): DocumentParseProvider {
   return normalizeDocumentParseProvider(env("DEFAULT_DOCUMENT_PARSE_PROVIDER"));
 }
 
+export function getDocumentParseBackend(): DocumentParseBackend {
+  const configured = env("DOCUMENT_PARSE_BACKEND").toLowerCase();
+  return configured === "local"
+    ? "local"
+    : configured === "external"
+      ? "external"
+      : DEFAULT_DOCUMENT_PARSE_BACKEND;
+}
+
+export function getDocumentParseBaseUrl(): string {
+  return env("DOCUMENT_PARSE_BASE_URL").slice(0, RAG_LIMITS.maxBaseUrlChars);
+}
+
+export function getDocumentParseTimeoutMs(): number {
+  return (
+    clampInteger(
+      env("DOCUMENT_PARSE_TIMEOUT_MS"),
+      MIN_DOCUMENT_PARSE_TIMEOUT_MS,
+      MAX_DOCUMENT_PARSE_TIMEOUT_MS,
+    ) || DEFAULT_DOCUMENT_PARSE_TIMEOUT_MS
+  );
+}
+
+export function getDocParserMaxMarkdownChars(): number {
+  return (
+    clampInteger(
+      env("DOC_PARSER_MAX_MARKDOWN_CHARS"),
+      1_000,
+      MAX_DOC_PARSER_MAX_MARKDOWN_CHARS,
+    ) || DEFAULT_DOC_PARSER_MAX_MARKDOWN_CHARS
+  );
+}
+
+function isValidDocumentParseBaseUrl(value: string): boolean {
+  try {
+    const url = new URL(value);
+    return (
+      (url.protocol === "http:" || url.protocol === "https:") &&
+      !url.username &&
+      !url.password
+    );
+  } catch {
+    return false;
+  }
+}
+
 export function getDefaultMineruApiToken(): string {
   return env("DEFAULT_MINERU_API_TOKEN").slice(
     0,
@@ -405,6 +459,9 @@ export function getDefaultDocumentParseToken(
 export function isDefaultDocumentProcessingAvailable(
   provider = getDefaultDocumentParseProvider(),
 ): boolean {
+  if (getDocumentParseBackend() === "local") {
+    return isValidDocumentParseBaseUrl(getDocumentParseBaseUrl());
+  }
   return provider === "mineru" || Boolean(getDefaultLlamaParseApiKey());
 }
 
@@ -594,6 +651,7 @@ export function getPublicServerConfig(): PublicServerConfig {
     rag: {
       vectorStoreAvailable: Boolean(rag),
       documentProcessingAvailable,
+      documentProcessingBackend: getDocumentParseBackend(),
       ...(documentProcessingAvailable ? { documentProcessingProvider } : {}),
       ...(rag?.topK !== undefined ? { topK: rag.topK } : {}),
       ...(rag?.chunkSize !== undefined ? { chunkSize: rag.chunkSize } : {}),

@@ -15,6 +15,7 @@ export type {
 } from "../memory/types";
 
 export type DocumentParseProvider = "mineru" | "llamaParse";
+export type DocumentParseBackend = "local" | "external";
 export type SystemPersonality =
   | "default"
   | "professional"
@@ -41,6 +42,7 @@ export interface RAGConfig {
   useDefaultDocumentProcessing?: boolean;
   serverVectorStoreAvailable?: boolean;
   serverDocumentProcessingAvailable?: boolean;
+  serverDocumentProcessingBackend?: DocumentParseBackend;
 }
 
 export interface DefaultModels {

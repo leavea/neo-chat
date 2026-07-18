@@ -63,6 +63,7 @@ export type {
 export type {
   AppSettings,
   DefaultModels,
+  DocumentParseBackend,
   DocumentParseProvider,
   MemoryDreamStatus,
   MemoryRecord,

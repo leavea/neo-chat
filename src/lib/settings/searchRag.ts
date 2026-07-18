@@ -1,5 +1,6 @@
 import { RAG_LIMITS, SEARCH_CONFIG_LIMITS } from "@/config/limits";
 import type {
+  DocumentParseBackend,
   DocumentParseProvider,
   ProviderType,
   RAGConfig,
@@ -88,6 +89,11 @@ export const normalizeDocumentParseProvider = (
   isDocumentParseProvider(provider)
     ? provider
     : DEFAULT_DOCUMENT_PARSE_PROVIDER;
+
+export const isDocumentParseBackend = (
+  backend: unknown,
+): backend is DocumentParseBackend =>
+  backend === "local" || backend === "external";
 
 export const getSearchProviderLabel = (provider: SearchProviderID): string => {
   switch (provider) {
@@ -358,6 +364,12 @@ export const normalizeRAGConfig = (config: unknown): RAGConfig => {
       ? {
           serverDocumentProcessingAvailable:
             rawConfig.serverDocumentProcessingAvailable === true,
+        }
+      : {}),
+    ...(isDocumentParseBackend(rawConfig.serverDocumentProcessingBackend)
+      ? {
+          serverDocumentProcessingBackend:
+            rawConfig.serverDocumentProcessingBackend,
         }
       : {}),
   };

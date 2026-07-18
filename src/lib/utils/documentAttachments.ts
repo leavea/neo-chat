@@ -80,8 +80,12 @@ async function parseFileToMarkdown(
   rag: RAGConfig,
 ): Promise<string> {
   const provider = rag.documentParseProvider || "mineru";
+  const localParser =
+    rag.serverDocumentProcessingBackend === "local" &&
+    rag.serverDocumentProcessingAvailable;
   const useDefault = Boolean(
-    rag.useDefaultDocumentProcessing && rag.serverDocumentProcessingAvailable,
+    localParser ||
+    (rag.useDefaultDocumentProcessing && rag.serverDocumentProcessingAvailable),
   );
   const apiKey = useDefault
     ? undefined

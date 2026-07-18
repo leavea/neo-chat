@@ -4,6 +4,13 @@ Neo Chat is local-first. Durable user data stays in browser storage whenever
 possible, while server routes act as controlled proxies for providers, search,
 RAG, document parsing, voice, and plugin execution.
 
+When `DOCUMENT_PARSE_BACKEND=local` is enabled, non-text documents are sent
+from the browser to the Neo Chat route and then to the private `doc-parser`
+sidecar on the Compose network. The sidecar parses the file from a temporary
+location and deletes it after the response; it does not call MinerU,
+LlamaParse, or another third-party service. `external` mode keeps the existing
+MinerU/LlamaParse paths and their corresponding privacy and key requirements.
+
 ## Browser Storage
 
 Neo Chat uses several browser storage layers:

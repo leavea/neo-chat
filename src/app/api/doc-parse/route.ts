@@ -13,12 +13,17 @@ import { DocumentParseSchema } from "@/lib/api/schemas";
 import { getUploadBlobValidationError } from "@/lib/api/uploads";
 import { BYOK_CONTEXTS } from "@/lib/byok/shared";
 import { decryptSecretEnvelope } from "@/lib/byok/server";
-import { getDefaultDocumentParseToken } from "@/lib/defaultConfig/server";
 import { safeServerLogError } from "@/lib/utils/safeServerLog";
 import { createDocumentParseJob } from "@/lib/api/docParseJobs";
+import {
+  getDocumentParseBackend,
+  getDefaultDocumentParseToken,
+} from "@/lib/defaultConfig/server";
+import { parseDocumentWithLocalParser } from "@/lib/api/localDocumentParser";
 
 export async function POST(request: NextRequest) {
   try {
+    const localBackend = getDocumentParseBackend() === "local";
     const runtimeMaxFileBytes = getRuntimeMaxAttachmentFileBytes();
     assertMultipartRequestContentLengthUnderLimit(
       request,
@@ -35,8 +40,35 @@ export async function POST(request: NextRequest) {
         apiKeySecret: parseJsonFormValue(apiKeySecretValue, "apiKeySecret"),
         apiKey: formData.get("apiKey") || undefined,
         apiToken: formData.get("apiToken") || undefined,
-        useDefault: formData.get("useDefault") === "true",
+        // The local sidecar never needs a provider key. Treat the request as
+        // a server-default parse for schema compatibility, even when an older
+        // browser still sends useDefault=false.
+        useDefault: formData.get("useDefault") === "true" || localBackend,
       });
+
+    const fileError = getUploadBlobValidationError(file, {
+      label: "Document file",
+      maxBytes: Math.min(
+        DOCUMENT_LIMITS.maxParseFileBytes,
+        runtimeMaxFileBytes,
+      ),
+    });
+    if (fileError) {
+      return NextResponse.json(
+        { error: fileError },
+        {
+          status: fileError.includes("too large") ? 413 : 400,
+        },
+      );
+    }
+
+    if (localBackend) {
+      const markdown = await parseDocumentWithLocalParser(file, {
+        signal: request.signal,
+      });
+      return NextResponse.json({ markdown }, { status: 200 });
+    }
+
     const apiKey = useDefault
       ? getDefaultDocumentParseToken(provider)
       : apiKeySecret
@@ -59,15 +91,15 @@ export async function POST(request: NextRequest) {
       provider === "mineru" && !apiKey
         ? DOCUMENT_LIMITS.maxMineruAgentParseFileBytes
         : DOCUMENT_LIMITS.maxParseFileBytes;
-    const fileError = getUploadBlobValidationError(file, {
+    const externalFileError = getUploadBlobValidationError(file, {
       label: "Document file",
       maxBytes: Math.min(maxBytes, runtimeMaxFileBytes),
     });
-    if (fileError) {
+    if (externalFileError) {
       return NextResponse.json(
-        { error: fileError },
+        { error: externalFileError },
         {
-          status: fileError.includes("too large") ? 413 : 400,
+          status: externalFileError.includes("too large") ? 413 : 400,
         },
       );
     }
