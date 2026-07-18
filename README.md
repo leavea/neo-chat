@@ -86,7 +86,11 @@ pnpm install
 pnpm dev
 ```
 
-Open `http://localhost:3000`, then configure at least one model provider in Settings.
+Open `http://localhost:3000`, then configure at least one model provider in
+Settings. When no provider is configured, Neo Chat opens a connection dialog
+that accepts `newapi_channel_conn` JSON, stores the imported key encrypted in
+the current browser, and takes you to the provider model list to enable at
+least one model.
 
 For deployment-wide defaults, copy the environment template:
 

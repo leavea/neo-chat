@@ -10,6 +10,7 @@ import { useLocale, useTranslations } from "next-intl";
 import { v7 as uuidv7 } from "uuid";
 
 import ChatAppShell from "@/components/app/ChatAppShell";
+import ProviderConnectionModal from "@/components/settings/ProviderConnectionModal";
 import type { MessageInputRef } from "@/components/chat/MessageInput";
 import type { ModelInfo } from "@/services/api/chatService";
 import { resolveSkillsForMessage } from "@/services/api/skillService";
@@ -69,13 +70,21 @@ import {
 } from "@/lib/api/client";
 import {
   getSessionPluginPresetSyncKey,
+  hasConfiguredModelProvider,
   shouldDisableSearchToggle,
   shouldApplySessionPluginPreset,
+  shouldPromptForProviderConnection,
   shouldResolveSelectedModelAfterBootstrap,
   shouldRunSettingsStartupEffects,
 } from "@/lib/app/startupEffects";
 import { buildSearchUpdate } from "@/lib/chat/searchUpdate";
 import { getSearchCompatibility } from "@/lib/settings/searchRag";
+import type { ParsedNewApiChannelConnection } from "@/lib/providers/channelConnection";
+import { OPENAI_COMPATIBLE_PROVIDER_TYPE } from "@/lib/providers/providerTypes";
+import {
+  encryptLocalSecret,
+  LOCAL_SECRET_CONTEXTS,
+} from "@/lib/security/localSecrets";
 
 const logChatAppError = logDevError;
 const EMPTY_MESSAGES: Message[] = [];
@@ -139,7 +148,9 @@ const ChatApp = () => {
       _hasHydrated: coreHasHydrated,
       theme,
       providers,
+      addProvider,
       updateProvider,
+      deleteProvider,
       applyServerConfig: applyCoreServerConfig,
     },
     knowledgeCollections,
@@ -150,6 +161,11 @@ const ChatApp = () => {
 
   // --- Local UI State ---
   const [actionError, setActionError] = useState<string | null>(null);
+  const [isProviderConnectionModalOpen, setIsProviderConnectionModalOpen] =
+    useState(false);
+  const [providerSetupTargetId, setProviderSetupTargetId] = useState<
+    string | null
+  >(null);
   const {
     isGenerating,
     beginActiveGeneration,
@@ -242,6 +258,7 @@ const ChatApp = () => {
   );
   const assistantSelectRequestRef = useRef(0);
   const defaultProviderFetchRef = useRef(false);
+  const providerConnectionPromptHandledRef = useRef(false);
 
   const currentSession = getCurrentSession(); // This is just metadata now
   const messages = activeMessages ?? EMPTY_MESSAGES; // Use activeMessages from store
@@ -418,6 +435,61 @@ const ChatApp = () => {
     applySettingsServerConfig,
     coreHasHydrated,
   ]);
+
+  useEffect(() => {
+    if (
+      !shouldPromptForProviderConnection({
+        coreHydrated: coreHasHydrated,
+        serverConfigResolved,
+        hasConfiguredProvider: hasConfiguredModelProvider(providers),
+        promptHandled: providerConnectionPromptHandledRef.current,
+      })
+    ) {
+      return;
+    }
+
+    providerConnectionPromptHandledRef.current = true;
+    setIsProviderConnectionModalOpen(true);
+  }, [coreHasHydrated, providers, serverConfigResolved]);
+
+  const handleProviderConnectionImport = useCallback(
+    async (connection: ParsedNewApiChannelConnection) => {
+      const providerId = addProvider();
+
+      try {
+        const apiKeySecret = await encryptLocalSecret(
+          connection.apiKey,
+          LOCAL_SECRET_CONTEXTS.providerApiKey(providerId),
+        );
+        if (!apiKeySecret) {
+          throw new Error("Provider API key encryption returned no secret");
+        }
+
+        updateProvider(providerId, {
+          name: connection.providerName,
+          type: OPENAI_COMPATIBLE_PROVIDER_TYPE,
+          baseUrl: connection.baseUrl,
+          apiKey: "",
+          apiKeySecret,
+          enabled: true,
+          models: [],
+          modelsList: [],
+        });
+        setProviderSetupTargetId(providerId);
+        navigateToPanel("settings", "providers");
+      } catch (error) {
+        deleteProvider(providerId);
+        logChatAppError("Failed to import provider connection", error);
+        throw error;
+      }
+    },
+    [addProvider, deleteProvider, navigateToPanel, updateProvider],
+  );
+
+  const handleProviderSetupComplete = useCallback(() => {
+    setProviderSetupTargetId(null);
+    navigateToPanel("chat");
+  }, [navigateToPanel]);
 
   useEffect(() => {
     if (
@@ -1884,56 +1956,67 @@ const ChatApp = () => {
   // --- Render ---
 
   return (
-    <ChatAppShell
-      actionError={actionError}
-      sessions={sessions}
-      currentSessionId={currentSessionId}
-      currentSession={currentSession}
-      messages={messages}
-      activeMessageTree={activeMessageTree}
-      isGenerating={isGenerating}
-      isActiveSessionLoading={isActiveSessionLoading}
-      availableModels={availableModels}
-      selectedModel={selectedModel}
-      isSearchEnabled={chatConfig.useSearch}
-      viewMode={viewMode}
-      settingsTab={settingsTab}
-      isSidebarOpen={isSidebarOpen}
-      isNonDesktopViewport={isNonDesktopViewport}
-      isSidebarDrawerOpen={isSidebarDrawerOpen}
-      mainInertProps={mainInertProps}
-      shouldShowChatTitleBar={shouldShowChatTitleBar}
-      welcomeState={welcomeState}
-      messageInputVariant={messageInputVariant}
-      messagesScrollRef={messagesScrollRef}
-      messagesEndRef={messagesEndRef}
-      messageInputRef={messageInputRef}
-      setIsSidebarOpen={setIsSidebarOpen}
-      navigateToPanel={navigateToPanel}
-      handleSettingsTabChange={handleSettingsTabChange}
-      updateIsNearMessageBottom={updateIsNearMessageBottom}
-      stopActiveGenerationWithFeedback={stopActiveGenerationWithFeedback}
-      selectSession={handleSelectSession}
-      handleNewChat={handleNewChat}
-      handleDeleteSession={handleDeleteSession}
-      updateSessionTitle={updateSessionTitle}
-      toggleSessionPin={toggleSessionPin}
-      handleDuplicateSession={handleDuplicateSession}
-      handleSmartRename={handleSmartRename}
-      handleAssistantSelect={handleAssistantSelect}
-      updateSessionInstruction={updateSessionInstruction}
-      handleEditMessage={handleEditMessage}
-      handleDeleteMessage={handleDeleteMessage}
-      handleSubmitUserMessageEdit={handleSubmitUserMessageEdit}
-      handleRetractMessage={handleRetractMessage}
-      handleRegenerate={handleRegenerate}
-      handleVersionChange={handleVersionChange}
-      handleSendMessage={handleSendMessage}
-      handleSuggestionClick={handleSuggestionClick}
-      handleStopGeneration={handleStopGeneration}
-      setModel={setModel}
-      onToggleSearch={() => setChatConfig({ useSearch: !chatConfig.useSearch })}
-    />
+    <>
+      <ChatAppShell
+        actionError={actionError}
+        sessions={sessions}
+        currentSessionId={currentSessionId}
+        currentSession={currentSession}
+        messages={messages}
+        activeMessageTree={activeMessageTree}
+        isGenerating={isGenerating}
+        isActiveSessionLoading={isActiveSessionLoading}
+        availableModels={availableModels}
+        selectedModel={selectedModel}
+        isSearchEnabled={chatConfig.useSearch}
+        viewMode={viewMode}
+        settingsTab={settingsTab}
+        providerSetupTargetId={providerSetupTargetId}
+        isSidebarOpen={isSidebarOpen}
+        isNonDesktopViewport={isNonDesktopViewport}
+        isSidebarDrawerOpen={isSidebarDrawerOpen}
+        mainInertProps={mainInertProps}
+        shouldShowChatTitleBar={shouldShowChatTitleBar}
+        welcomeState={welcomeState}
+        messageInputVariant={messageInputVariant}
+        messagesScrollRef={messagesScrollRef}
+        messagesEndRef={messagesEndRef}
+        messageInputRef={messageInputRef}
+        setIsSidebarOpen={setIsSidebarOpen}
+        navigateToPanel={navigateToPanel}
+        handleSettingsTabChange={handleSettingsTabChange}
+        onProviderSetupComplete={handleProviderSetupComplete}
+        updateIsNearMessageBottom={updateIsNearMessageBottom}
+        stopActiveGenerationWithFeedback={stopActiveGenerationWithFeedback}
+        selectSession={handleSelectSession}
+        handleNewChat={handleNewChat}
+        handleDeleteSession={handleDeleteSession}
+        updateSessionTitle={updateSessionTitle}
+        toggleSessionPin={toggleSessionPin}
+        handleDuplicateSession={handleDuplicateSession}
+        handleSmartRename={handleSmartRename}
+        handleAssistantSelect={handleAssistantSelect}
+        updateSessionInstruction={updateSessionInstruction}
+        handleEditMessage={handleEditMessage}
+        handleDeleteMessage={handleDeleteMessage}
+        handleSubmitUserMessageEdit={handleSubmitUserMessageEdit}
+        handleRetractMessage={handleRetractMessage}
+        handleRegenerate={handleRegenerate}
+        handleVersionChange={handleVersionChange}
+        handleSendMessage={handleSendMessage}
+        handleSuggestionClick={handleSuggestionClick}
+        handleStopGeneration={handleStopGeneration}
+        setModel={setModel}
+        onToggleSearch={() =>
+          setChatConfig({ useSearch: !chatConfig.useSearch })
+        }
+      />
+      <ProviderConnectionModal
+        open={isProviderConnectionModalOpen}
+        onClose={() => setIsProviderConnectionModalOpen(false)}
+        onImport={handleProviderConnectionImport}
+      />
+    </>
   );
 };
 

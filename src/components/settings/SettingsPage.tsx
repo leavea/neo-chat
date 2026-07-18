@@ -41,10 +41,19 @@ const SETTINGS_TABS: Array<{
   { id: "about", labelKey: "tabAbout", Icon: Info },
 ];
 
-const renderTabContent = (activeTab: SettingsTabId) => {
+const renderTabContent = (
+  activeTab: SettingsTabId,
+  providerSetupTargetId?: string | null,
+  onProviderSetupComplete?: () => void,
+) => {
   switch (activeTab) {
     case "providers":
-      return <ProviderSettings />;
+      return (
+        <ProviderSettings
+          setupProviderId={providerSetupTargetId}
+          onSetupComplete={onProviderSetupComplete}
+        />
+      );
     case "defaults":
       return <DefaultModelSettings />;
     case "search":
@@ -68,12 +77,16 @@ interface SettingsPageProps {
   onClose?: () => void;
   activeTab?: SettingsTabId;
   onTabChange?: (tab: SettingsTabId) => void;
+  providerSetupTargetId?: string | null;
+  onProviderSetupComplete?: () => void;
 }
 
 const SettingsPage: React.FC<SettingsPageProps> = ({
   onClose,
   activeTab,
   onTabChange,
+  providerSetupTargetId,
+  onProviderSetupComplete,
 }) => {
   const t = useTranslations("SettingsPage");
   const [localActiveTab, setLocalActiveTab] =
@@ -198,7 +211,11 @@ const SettingsPage: React.FC<SettingsPageProps> = ({
               aria-labelledby={`settings-tab-${resolvedActiveTab}`}
               className="mx-auto w-full max-w-5xl px-4 py-5 md:px-8 md:py-6"
             >
-              {renderTabContent(resolvedActiveTab)}
+              {renderTabContent(
+                resolvedActiveTab,
+                providerSetupTargetId,
+                onProviderSetupComplete,
+              )}
             </div>
           </div>
         </div>

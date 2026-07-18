@@ -68,6 +68,7 @@ interface ChatAppShellProps {
   isSearchEnabled: boolean;
   viewMode: ChatPanel;
   settingsTab: SettingsTabId;
+  providerSetupTargetId: string | null;
   isSidebarOpen: boolean;
   isNonDesktopViewport: boolean;
   isSidebarDrawerOpen: boolean;
@@ -85,6 +86,7 @@ interface ChatAppShellProps {
     historyMode?: "push" | "replace",
   ) => void;
   handleSettingsTabChange: (tab: SettingsTabId) => void;
+  onProviderSetupComplete: () => void;
   updateIsNearMessageBottom: () => void;
   stopActiveGenerationWithFeedback: () => Promise<void>;
   selectSession: (id: string) => Promise<void>;
@@ -126,6 +128,7 @@ const ChatAppShell = ({
   isSearchEnabled,
   viewMode,
   settingsTab,
+  providerSetupTargetId,
   isSidebarOpen,
   isNonDesktopViewport,
   isSidebarDrawerOpen,
@@ -139,6 +142,7 @@ const ChatAppShell = ({
   setIsSidebarOpen,
   navigateToPanel,
   handleSettingsTabChange,
+  onProviderSetupComplete,
   updateIsNearMessageBottom,
   stopActiveGenerationWithFeedback,
   selectSession,
@@ -253,6 +257,8 @@ const ChatAppShell = ({
             activeTab={settingsTab}
             onTabChange={handleSettingsTabChange}
             onClose={() => navigateToPanel("chat")}
+            providerSetupTargetId={providerSetupTargetId}
+            onProviderSetupComplete={onProviderSetupComplete}
           />
         ) : (
           <>

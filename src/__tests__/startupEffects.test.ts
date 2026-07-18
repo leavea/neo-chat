@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
   getSessionPluginPresetSyncKey,
+  hasConfiguredModelProvider,
   shouldDisableSearchToggle,
   shouldApplySessionPluginPreset,
+  shouldPromptForProviderConnection,
   shouldResolveSelectedModelAfterBootstrap,
   shouldRunSettingsStartupEffects,
   shouldSyncSessionPlugins,
@@ -13,6 +15,63 @@ describe("app startup effects", () => {
   it("waits for settings hydration before running settings writes", () => {
     expect(shouldRunSettingsStartupEffects(false)).toBe(false);
     expect(shouldRunSettingsStartupEffects(true)).toBe(true);
+  });
+
+  it("prompts once when startup resolves without a model provider", () => {
+    expect(
+      shouldPromptForProviderConnection({
+        coreHydrated: true,
+        serverConfigResolved: true,
+        hasConfiguredProvider: false,
+        promptHandled: false,
+      }),
+    ).toBe(true);
+    expect(
+      shouldPromptForProviderConnection({
+        coreHydrated: true,
+        serverConfigResolved: true,
+        hasConfiguredProvider: true,
+        promptHandled: false,
+      }),
+    ).toBe(false);
+    expect(
+      shouldPromptForProviderConnection({
+        coreHydrated: true,
+        serverConfigResolved: true,
+        hasConfiguredProvider: false,
+        promptHandled: true,
+      }),
+    ).toBe(false);
+    expect(
+      hasConfiguredModelProvider([
+        {
+          apiKey: "",
+          apiKeySecret: undefined,
+          isServerDefault: false,
+        },
+      ]),
+    ).toBe(false);
+    expect(
+      hasConfiguredModelProvider([
+        {
+          apiKey: "",
+          apiKeySecret: {
+            v: 1,
+            alg: "A256GCM",
+            keyId: "key",
+            iv: "iv",
+            ciphertext: "encrypted",
+            context: "local:provider:test:api-key",
+          },
+          isServerDefault: false,
+        },
+      ]),
+    ).toBe(true);
+    expect(
+      hasConfiguredModelProvider([
+        { apiKey: "", apiKeySecret: undefined, isServerDefault: true },
+      ]),
+    ).toBe(true);
   });
 
   it("waits for chat and settings hydration before syncing session plugins", () => {

@@ -74,7 +74,9 @@ export function useChatShellState() {
       _hasHydrated: state._hasHydrated,
       theme: state.theme,
       providers: state.providers,
+      addProvider: state.addProvider,
       updateProvider: state.updateProvider,
+      deleteProvider: state.deleteProvider,
       applyServerConfig: state.applyServerConfig,
     })),
   );

@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   Server,
   Trash2,
@@ -17,7 +17,7 @@ import {
   ExternalLink,
 } from "lucide-react";
 import { useTranslations } from "next-intl";
-import type { ProviderType } from "@/types";
+import type { ModelProvider, ProviderType } from "@/types";
 import {
   useSettingsStore,
   formatModelName,
@@ -58,6 +58,11 @@ type ProviderTypeOption = {
   endpointClassName: string;
 };
 
+interface ProviderSettingsProps {
+  setupProviderId?: string | null;
+  onSetupComplete?: () => void;
+}
+
 function getProviderApiKeyHelpUrl(type: ProviderType | undefined) {
   if (isGoogleProviderType(type)) {
     return "https://aistudio.google.com/app/apikey";
@@ -93,7 +98,10 @@ function getProviderBaseUrlPlaceholder(
   return t("openaiBaseUrlPlaceholder");
 }
 
-const ProviderSettings = () => {
+const ProviderSettings = ({
+  setupProviderId,
+  onSetupComplete,
+}: ProviderSettingsProps) => {
   const t = useTranslations("Providers");
   const { modelMetadata, customModelMetadata } = useSettingsStore();
 
@@ -119,6 +127,8 @@ const ProviderSettings = () => {
   const fetchAbortRef = useRef<AbortController | null>(null);
   const fetchRequestIdRef = useRef(0);
   const selectedProviderIdRef = useRef<string | null>(null);
+  const setupSelectionAppliedRef = useRef<string | null>(null);
+  const setupAutoFetchProviderIdRef = useRef<string | null>(null);
   const deleteConfirmTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
     null,
   );
@@ -126,6 +136,18 @@ const ProviderSettings = () => {
   // Ensure selection validity - wait for hydration
   useEffect(() => {
     if (!_hasHydrated) return;
+
+    const setupProvider = setupProviderId
+      ? providers.find((provider) => provider.id === setupProviderId)
+      : undefined;
+    if (
+      setupProvider &&
+      setupSelectionAppliedRef.current !== setupProvider.id
+    ) {
+      setupSelectionAppliedRef.current = setupProvider.id;
+      setSelectedProviderId(setupProvider.id);
+      return;
+    }
 
     if (providers.length > 0) {
       if (
@@ -135,7 +157,7 @@ const ProviderSettings = () => {
         setSelectedProviderId(providers[0].id);
       }
     }
-  }, [_hasHydrated, providers, selectedProviderId]);
+  }, [_hasHydrated, providers, selectedProviderId, setupProviderId]);
 
   const currentProvider = providers.find((p) => p.id === selectedProviderId);
   const isServerDefaultProvider = Boolean(currentProvider?.isServerDefault);
@@ -148,6 +170,7 @@ const ProviderSettings = () => {
   const providerBaseUrlInputId = `${currentProviderDomId}-provider-base-url`;
   const providerApiKeyInputId = `${currentProviderDomId}-provider-api-key`;
   const providerEnabledInputId = `${currentProviderDomId}-provider-enabled`;
+  const modelSelectionSectionId = `${currentProviderDomId}-model-selection`;
   const providerApiKeyHelpUrl = getProviderApiKeyHelpUrl(currentProvider?.type);
   const providerTypeOptions: ProviderTypeOption[] = [
     {
@@ -222,79 +245,118 @@ const ProviderSettings = () => {
     deleteProvider(currentProvider.id);
   };
 
-  const handleFetchModels = async () => {
+  const fetchModelsForProvider = useCallback(
+    async (providerSnapshot: ModelProvider) => {
+      fetchAbortRef.current?.abort();
+      const controller = new AbortController();
+      fetchAbortRef.current = controller;
+      const requestId = fetchRequestIdRef.current + 1;
+      fetchRequestIdRef.current = requestId;
+
+      setFetchingProviderId(providerSnapshot.id);
+      setFetchError(null);
+      try {
+        const response = await fetchWithByokRetry(async () =>
+          signedApiFetch("/api/providers/models", {
+            method: "POST",
+            signal: controller.signal,
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              provider: await buildProviderRuntimeConfig(providerSnapshot),
+            }),
+          }),
+        );
+
+        if (
+          requestId !== fetchRequestIdRef.current ||
+          controller.signal.aborted
+        ) {
+          return;
+        }
+
+        if (!response.ok) {
+          throw new Error(
+            await getResponseErrorMessage(response, t("failedToFetchModels")),
+          );
+        }
+
+        const data = await readJsonResponseOrThrow<{ models?: string[] }>(
+          response,
+          t("failedToFetchModels"),
+        );
+        const models = data.models || [];
+
+        if (models.length > 0) {
+          updateProvider(providerSnapshot.id, { modelsList: models });
+        } else {
+          updateProvider(providerSnapshot.id, { modelsList: [] });
+          if (selectedProviderIdRef.current === providerSnapshot.id) {
+            setFetchError(t("noCompatibleModels"));
+          }
+        }
+      } catch (error) {
+        if (controller.signal.aborted) return;
+        if (
+          requestId === fetchRequestIdRef.current &&
+          selectedProviderIdRef.current === providerSnapshot.id
+        ) {
+          setFetchError(
+            error instanceof Error ? error.message : t("errorFetchingModels"),
+          );
+        }
+      } finally {
+        if (requestId === fetchRequestIdRef.current) {
+          fetchAbortRef.current = null;
+          setFetchingProviderId(null);
+        }
+      }
+    },
+    [t, updateProvider],
+  );
+
+  const handleFetchModels = () => {
     if (!currentProvider) {
       setFetchError(t("failedToFetchModels"));
       return;
     }
 
-    fetchAbortRef.current?.abort();
-    const controller = new AbortController();
-    fetchAbortRef.current = controller;
-    const requestId = fetchRequestIdRef.current + 1;
-    fetchRequestIdRef.current = requestId;
-    const providerSnapshot = currentProvider;
-
-    setFetchingProviderId(providerSnapshot.id);
-    setFetchError(null);
-    try {
-      const response = await fetchWithByokRetry(async () =>
-        signedApiFetch("/api/providers/models", {
-          method: "POST",
-          signal: controller.signal,
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            provider: await buildProviderRuntimeConfig(providerSnapshot),
-          }),
-        }),
-      );
-
-      if (
-        requestId !== fetchRequestIdRef.current ||
-        controller.signal.aborted
-      ) {
-        return;
-      }
-
-      if (!response.ok) {
-        throw new Error(
-          await getResponseErrorMessage(response, t("failedToFetchModels")),
-        );
-      }
-
-      const data = await readJsonResponseOrThrow<{ models?: string[] }>(
-        response,
-        t("failedToFetchModels"),
-      );
-      const models = data.models || [];
-
-      if (models.length > 0) {
-        updateProvider(providerSnapshot.id, { modelsList: models });
-      } else {
-        updateProvider(providerSnapshot.id, { modelsList: [] });
-        if (selectedProviderIdRef.current === providerSnapshot.id) {
-          setFetchError(t("noCompatibleModels"));
-        }
-      }
-    } catch (error) {
-      if (controller.signal.aborted) return;
-      if (
-        requestId === fetchRequestIdRef.current &&
-        selectedProviderIdRef.current === providerSnapshot.id
-      ) {
-        setFetchError(
-          error instanceof Error ? error.message : t("errorFetchingModels"),
-        );
-      }
-    } finally {
-      if (requestId === fetchRequestIdRef.current) {
-        fetchAbortRef.current = null;
-        setFetchingProviderId(null);
-      }
-    }
+    void fetchModelsForProvider(currentProvider);
   };
+
+  useEffect(() => {
+    if (
+      !_hasHydrated ||
+      !setupProviderId ||
+      currentProvider?.id !== setupProviderId ||
+      setupAutoFetchProviderIdRef.current === setupProviderId
+    ) {
+      return;
+    }
+
+    setupAutoFetchProviderIdRef.current = setupProviderId;
+    const frame = requestAnimationFrame(() => {
+      const target = document.getElementById(modelSelectionSectionId);
+      target?.focus({ preventScroll: true });
+      target?.scrollIntoView({ behavior: "smooth", block: "start" });
+
+      if (
+        !currentProvider.modelsList?.length &&
+        currentProvider.models.length === 0
+      ) {
+        void fetchModelsForProvider(currentProvider);
+      }
+    });
+
+    return () => cancelAnimationFrame(frame);
+  }, [
+    _hasHydrated,
+    currentProvider,
+    fetchModelsForProvider,
+    modelSelectionSectionId,
+    setupProviderId,
+  ]);
 
   const handleAddProvider = () => {
     const newId = addProvider();
@@ -315,6 +377,8 @@ const ProviderSettings = () => {
     currentProvider?.modelsList && currentProvider.modelsList.length > 0
       ? currentProvider.modelsList
       : currentProvider?.models || [];
+  const isSetupProvider = currentProvider?.id === setupProviderId;
+  const setupHasSelectedModel = Boolean(currentProvider?.models.length);
 
   const renderModelCapabilities = (id: string) => {
     const meta = customModelMetadata[id] || modelMetadata[id];
@@ -666,7 +730,62 @@ const ProviderSettings = () => {
                   )}
                 </div>
               </div>
-              <div className="pt-4 border-t border-gray-100 dark:border-border">
+              <div
+                id={modelSelectionSectionId}
+                tabIndex={-1}
+                className="scroll-mt-6 border-t border-gray-100 pt-4 outline-none dark:border-border"
+              >
+                {isSetupProvider ? (
+                  <div
+                    role="status"
+                    aria-live="polite"
+                    className={`mb-4 flex flex-col gap-3 rounded-xl border px-4 py-3 sm:flex-row sm:items-center sm:justify-between ${
+                      setupHasSelectedModel
+                        ? "border-emerald-200 bg-emerald-50 text-emerald-900 dark:border-emerald-900/60 dark:bg-emerald-950/30 dark:text-emerald-100"
+                        : "border-blue-200 bg-blue-50 text-blue-900 dark:border-blue-900/60 dark:bg-blue-950/30 dark:text-blue-100"
+                    }`}
+                  >
+                    <div className="flex min-w-0 items-start gap-3">
+                      <div
+                        className={`mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${
+                          setupHasSelectedModel
+                            ? "bg-emerald-500 text-white"
+                            : "bg-blue-500 text-white"
+                        }`}
+                        aria-hidden="true"
+                      >
+                        {setupHasSelectedModel ? (
+                          <Check size={16} />
+                        ) : isFetchingCurrentProvider ? (
+                          <RefreshCw size={15} className="animate-spin" />
+                        ) : (
+                          <Server size={15} />
+                        )}
+                      </div>
+                      <div className="min-w-0">
+                        <div className="text-sm font-semibold">
+                          {t("setupGuideTitle")}
+                        </div>
+                        <p className="mt-0.5 text-xs leading-5 opacity-85">
+                          {setupHasSelectedModel
+                            ? t("setupGuideReady")
+                            : isFetchingCurrentProvider
+                              ? t("setupGuideFetching")
+                              : t("setupGuideChoose")}
+                        </p>
+                      </div>
+                    </div>
+                    {setupHasSelectedModel && onSetupComplete ? (
+                      <button
+                        type="button"
+                        onClick={onSetupComplete}
+                        className="shrink-0 rounded-lg bg-emerald-600 px-3 py-2 text-xs font-medium text-white transition-colors hover:bg-emerald-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 focus-visible:ring-offset-emerald-50 dark:focus-visible:ring-offset-emerald-950"
+                      >
+                        {t("setupGuideStartChat")}
+                      </button>
+                    ) : null}
+                  </div>
+                ) : null}
                 <div className="flex items-center justify-between mb-3">
                   <div className="text-sm font-medium text-gray-700 dark:text-foreground/85">
                     {t("availableModels")}

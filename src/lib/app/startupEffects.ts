@@ -1,9 +1,43 @@
 import type { SearchCompatibilityResult } from "../settings/searchRag";
+import type { ModelProvider } from "../providers/types";
 
 export function shouldRunSettingsStartupEffects(
   settingsHydrated: boolean,
 ): boolean {
   return settingsHydrated;
+}
+
+export function shouldPromptForProviderConnection({
+  coreHydrated,
+  serverConfigResolved,
+  hasConfiguredProvider,
+  promptHandled,
+}: {
+  coreHydrated: boolean;
+  serverConfigResolved: boolean;
+  hasConfiguredProvider: boolean;
+  promptHandled: boolean;
+}): boolean {
+  return (
+    coreHydrated &&
+    serverConfigResolved &&
+    !hasConfiguredProvider &&
+    !promptHandled
+  );
+}
+
+export function hasConfiguredModelProvider(
+  providers: readonly Pick<
+    ModelProvider,
+    "apiKey" | "apiKeySecret" | "isServerDefault"
+  >[],
+): boolean {
+  return providers.some(
+    (provider) =>
+      Boolean(provider.isServerDefault) ||
+      Boolean(provider.apiKey?.trim()) ||
+      Boolean(provider.apiKeySecret),
+  );
 }
 
 export function shouldSyncSessionPlugins(

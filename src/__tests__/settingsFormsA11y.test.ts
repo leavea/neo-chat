@@ -43,4 +43,21 @@ describe("settings form accessibility", () => {
     expect(source).toContain('type="submit"');
     expect(source).not.toContain('e.key === "Enter"');
   });
+
+  it("provides an accessible provider connection import dialog", () => {
+    const source = readSource(
+      "src/components/settings/ProviderConnectionModal.tsx",
+    );
+
+    expect(source).toContain("useModalLifecycle");
+    expect(source).toContain("trapModalFocus");
+    expect(source).toContain('role="dialog"');
+    expect(source).toContain('aria-modal="true"');
+    expect(source).toContain("aria-labelledby={titleId}");
+    expect(source).toContain("htmlFor={inputId}");
+    expect(source).toContain("aria-invalid={Boolean(error)}");
+    expect(source).toContain('role="alert"');
+    expect(source).toContain("<form onSubmit={handleSubmit}");
+    expect(source).toContain('type="submit"');
+  });
 });
