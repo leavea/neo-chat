@@ -2,7 +2,13 @@
 
 import { useId, useRef, useState, type FormEvent } from "react";
 import { createPortal } from "react-dom";
-import { ArrowRight, KeyRound, LoaderCircle, Server, X } from "lucide-react";
+import {
+  ArrowRight,
+  ExternalLink,
+  KeyRound,
+  LoaderCircle,
+  Server,
+} from "lucide-react";
 import { useTranslations } from "next-intl";
 
 import {
@@ -60,13 +66,6 @@ const ProviderConnectionModal = ({
 
   if (!open) return null;
 
-  const closeModal = () => {
-    if (isImporting) return;
-    setInput("");
-    setError(null);
-    onClose();
-  };
-
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (isImporting) return;
@@ -94,9 +93,6 @@ const ProviderConnectionModal = ({
   return createPortal(
     <div
       className="fixed inset-0 z-9999 flex items-center justify-center overflow-y-auto overscroll-contain bg-black/30 p-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-[max(1rem,env(safe-area-inset-top))] backdrop-blur-sm animate-in fade-in duration-200 dark:bg-black/65"
-      onMouseDown={(event) => {
-        if (event.target === event.currentTarget) closeModal();
-      }}
     >
       <div
         ref={dialogRef}
@@ -108,7 +104,6 @@ const ProviderConnectionModal = ({
         onKeyDown={(event) => {
           if (event.key === "Escape") {
             event.preventDefault();
-            closeModal();
             return;
           }
           trapModalFocus(event, dialogRef.current);
@@ -138,15 +133,6 @@ const ProviderConnectionModal = ({
               </p>
             </div>
           </div>
-          <button
-            type="button"
-            aria-label={t("connectionCancel")}
-            disabled={isImporting}
-            onClick={closeModal}
-            className="shrink-0 rounded-lg p-2 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            <X size={20} aria-hidden="true" />
-          </button>
         </div>
 
         <form onSubmit={handleSubmit} className="overflow-y-auto px-5 py-5">
@@ -200,6 +186,16 @@ const ProviderConnectionModal = ({
             {t("connectionPrivacy")}
           </p>
 
+          <a
+            href="https://newapi.keepkin.cn/keys"
+            target="_blank"
+            rel="noreferrer"
+            className="mt-4 inline-flex items-center gap-1.5 text-sm font-medium text-blue-600 underline-offset-4 hover:underline dark:text-blue-300"
+          >
+            {t("connectionConfigureLink")}
+            <ExternalLink size={14} aria-hidden="true" />
+          </a>
+
           {error ? (
             <div
               id={errorId}
@@ -211,14 +207,6 @@ const ProviderConnectionModal = ({
           ) : null}
 
           <div className="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-            <button
-              type="button"
-              disabled={isImporting}
-              onClick={closeModal}
-              className="rounded-lg border border-border px-4 py-2.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              {t("connectionCancel")}
-            </button>
             <button
               type="submit"
               disabled={isImporting}

@@ -51,6 +51,7 @@
   "connectionInputHint": "_type が newapi_channel_conn の JSON データのみ対応しています。",
   "connectionExampleLabel": "形式の例",
   "connectionPrivacy": "API キーは暗号化してからこのブラウザに保存され、ローカル設定へ平文では書き込まれません。",
+  "connectionConfigureLink": "New API を開いてキーを設定し、接続情報をコピー",
   "connectionCancel": "後で設定",
   "connectionImport": "追加してモデルを選択",
   "connectionImporting": "安全に保存中…",

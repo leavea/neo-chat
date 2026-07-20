@@ -51,6 +51,7 @@
   "connectionInputHint": "Only JSON data with _type set to newapi_channel_conn is supported.",
   "connectionExampleLabel": "Format example",
   "connectionPrivacy": "Your API key is encrypted before it is stored in this browser and is never written to local settings as plaintext.",
+  "connectionConfigureLink": "Open New API to configure a key and copy the connection data",
   "connectionCancel": "Set up later",
   "connectionImport": "Add and choose models",
   "connectionImporting": "Saving securely…",

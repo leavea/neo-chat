@@ -51,6 +51,7 @@
   "connectionInputHint": "仅支持 _type 为 newapi_channel_conn 的 JSON 数据。",
   "connectionExampleLabel": "格式示例",
   "connectionPrivacy": "API 密钥会先加密，再保存在当前浏览器中，不会以明文写入本地设置。",
+  "connectionConfigureLink": "前往 New API 配置密钥并复制连接信息",
   "connectionCancel": "稍后设置",
   "connectionImport": "添加并选择模型",
   "connectionImporting": "正在安全保存…",
