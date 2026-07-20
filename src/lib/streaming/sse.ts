@@ -5,6 +5,8 @@
 import type { Attachment, ToolCall } from "@/types";
 import { toPublicErrorPayload } from "../errors";
 
+const SSE_HEARTBEAT_INTERVAL_MS = 15_000;
+
 export type SSEMessage =
   | { type: "content"; content: string }
   | { type: "reasoning"; content: string }
@@ -44,6 +46,14 @@ export function createStreamHandler(
 ): ReadableStream {
   return new ReadableStream({
     async start(controller) {
+      const heartbeat = setInterval(() => {
+        try {
+          controller.enqueue(new TextEncoder().encode(": heartbeat\n\n"));
+        } catch {
+          clearInterval(heartbeat);
+        }
+      }, SSE_HEARTBEAT_INTERVAL_MS);
+
       try {
         await handler(controller);
       } catch (error) {
@@ -56,6 +66,7 @@ export function createStreamHandler(
         })}\n\n`;
         controller.enqueue(new TextEncoder().encode(errorData));
       } finally {
+        clearInterval(heartbeat);
         controller.close();
       }
     },
