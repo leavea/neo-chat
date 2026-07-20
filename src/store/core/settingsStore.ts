@@ -608,7 +608,7 @@ export const useSettingsStore = create<SettingsState>()(
 
       // Search Settings
       search: {
-        provider: "firecrawl",
+        provider: "google",
         resultsLimit: 5,
         configs: {
           tavily: { apiKey: "" },

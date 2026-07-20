@@ -18,7 +18,6 @@ export const SETTINGS_TAB_VALUES = [
   "memory",
   "health",
   "system",
-  "about",
 ] as const;
 
 export type SettingsTabId = (typeof SETTINGS_TAB_VALUES)[number];

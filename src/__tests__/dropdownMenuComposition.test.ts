@@ -51,22 +51,12 @@ describe("dropdown menu composition", () => {
     }
   });
 
-  it("wires the about settings tab to a product-info layout", () => {
+  it("does not expose the about page in settings navigation", () => {
     const panelState = read("src/lib/chat/panelUrlState.ts");
     const settingsPage = read("src/components/settings/SettingsPage.tsx");
-    const aboutSettings = read("src/components/settings/AboutSettings.tsx");
 
-    expect(panelState).toContain('"about"');
-    expect(settingsPage).toContain("AboutSettings");
-    expect(settingsPage).toContain('id: "about"');
-    expect(aboutSettings).toContain("aboutHero");
-    expect(aboutSettings).toContain("aboutProductInfo");
-    expect(aboutSettings).toContain("https://neo.u14.app");
-    expect(aboutSettings).toContain("https://github.com/u14app/neo-chat");
-    expect(aboutSettings).not.toContain('label: t("copyright")');
-    expect(aboutSettings).not.toContain('label: t("client")');
-    expect(aboutSettings).not.toContain("configuredSiteUrl");
-    expect(aboutSettings).not.toContain("runtimeOrigin");
-    expect(aboutSettings).toContain("MIT License");
+    expect(panelState).not.toContain('"about"');
+    expect(settingsPage).not.toContain("AboutSettings");
+    expect(settingsPage).not.toContain('id: "about"');
   });
 });

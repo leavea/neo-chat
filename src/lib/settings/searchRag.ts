@@ -33,7 +33,7 @@ const DEFAULT_SEARCH_RESULTS_LIMIT = 5;
 const DEFAULT_RAG_TOP_K = 10;
 const DEFAULT_RAG_CHUNK_SIZE = 512;
 const DEFAULT_SEARXNG_BASE_URL = "http://localhost:8080";
-const DEFAULT_SEARCH_PROVIDER: SearchProviderID = "firecrawl";
+const DEFAULT_SEARCH_PROVIDER: SearchProviderID = "google";
 const DEFAULT_DOCUMENT_PARSE_PROVIDER: DocumentParseProvider = "mineru";
 
 export type SearchCompatibilityMode =
